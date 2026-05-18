@@ -1,42 +1,65 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
-import Logo from '../images/Logo.png';
-import paste from '../images/paste.png';
+import React from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import toast from "react-hot-toast";
+import Logo from "../images/Logo.png";
+import paste from "../images/paste.png";
+import { logoutUser, selectCurrentUser } from "../redux/authSlice";
 
 const Navbar = () => {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const currentUser = useSelector(selectCurrentUser);
+
+  async function handleLogout() {
+    await dispatch(logoutUser()).unwrap();
+    toast.success("Signed out");
+    navigate("/login", { replace: true });
+  }
+
   return (
-    <nav className="bg-gray-900 text-white shadow-md px-10 py-4 rounded-2xl border-1 border-gray-950">
-      <div className="flex items-center justify-between max-w-screen-xl mx-auto">
-        {/* Logo or Title */}
-        <div className="text-2xl font-bold text-blue-400 flex justify-center items-center ">
-          <img  src={Logo} alt="Logo" className="h-18 w-18 mr-4 rounded-2xl" />
-          Clip_Nest 
-          <img  src={paste} alt="Logo" className="h-10 w-10 ml-4 " />
+    <nav className="topbar">
+      <div className="topbar__inner">
+        <div className="brand">
+          <img src={Logo} alt="Clip Nest logo" className="brand__logo" />
+          <div>
+            <div className="brand__title">
+              Clip_Nest
+              <img src={paste} alt="" className="brand__mark" />
+            </div>
+            <p className="brand__subtitle">Private snippets, saved locally in your browser</p>
+          </div>
         </div>
 
-        {/* Navigation Links */}
-        <div className="flex gap-8 text-lg">
+        <div className="navlinks">
           <NavLink
             to="/"
-            className={({ isActive }) =>
-              isActive
-                ? 'text-blue-400 font-semibold border-b-2 border-blue-400'
-                : 'hover:text-blue-300 transition'
-            }
+            end
+            className={({ isActive }) => `navlink ${isActive ? "navlink--active" : ""}`}
           >
             Home
           </NavLink>
 
           <NavLink
             to="/pastes"
-            className={({ isActive }) =>
-              isActive
-                ? 'text-blue-400 font-semibold border-b-2 border-blue-400'
-                : 'hover:text-blue-300 transition'
-            }
+            className={({ isActive }) => `navlink ${isActive ? "navlink--active" : ""}`}
           >
             All Pastes
           </NavLink>
+
+          <div className="navlinks__meta">
+            {currentUser ? (
+              <>
+                <span className="user-chip">
+                  <span>{currentUser.name?.[0]?.toUpperCase() || "U"}</span>
+                  <span>{currentUser.name}</span>
+                </span>
+                <button type="button" className="navbutton" onClick={handleLogout}>
+                  Sign out
+                </button>
+              </>
+            ) : null}
+          </div>
         </div>
       </div>
     </nav>

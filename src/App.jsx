@@ -1,40 +1,52 @@
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom';
 import './App.css';
-import Navbar from './components/Navbar';
+import Home from './components/Home';
 import ResponsivePaste from './components/ResponsivePaste';
 import ResponsiveViewPaste from './components/ResponsiveViewPaste';
-import Home from './components/Home';
+import AuthPage from './components/AuthPage';
+import { AppLayout, ProtectedRoute, PublicRoute } from './components/RouteGuards';
 
 function App() {
   const router = createBrowserRouter([
     {
-      path: '/',
-      element: (
-        <>
-          <Navbar />
-          <Home/>
-        </>
-      ),
+      element: <PublicRoute />,
+      children: [
+        {
+          path: '/login',
+          element: <AuthPage mode="login" />,
+        },
+        {
+          path: '/signup',
+          element: <AuthPage mode="signup" />,
+        },
+      ],
     },
     {
-  path: '/Pastes',
-  element: (
-    <>
-      <Navbar />
-      <ResponsivePaste />
-    </>
-  ),
-},
-   {
-  path: '/view/:id',
-  element: (
-    <>
-      <Navbar />
-      <ResponsiveViewPaste />
-    </>
-  ),
-},
-
+      element: <ProtectedRoute />,
+      children: [
+        {
+          element: <AppLayout />,
+          children: [
+            {
+              index: true,
+              element: <Home />,
+            },
+            {
+              path: 'pastes',
+              element: <ResponsivePaste />,
+            },
+            {
+              path: 'view/:id',
+              element: <ResponsiveViewPaste />,
+            },
+          ],
+        },
+      ],
+    },
+    {
+      path: '*',
+      element: <Navigate to="/" replace />,
+    },
   ]);
 
   return <RouterProvider router={router} />;

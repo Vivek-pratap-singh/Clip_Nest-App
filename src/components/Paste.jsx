@@ -1,102 +1,148 @@
-import React, { useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { removeFromPaste } from '../redux/pasteSlice';
-import { useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
-import { NavLink } from 'react-router-dom'; 
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import toast from "react-hot-toast";
+import { removeFromPaste } from "../redux/pasteSlice";
+import { selectCurrentUser } from "../redux/authSlice";
 
+function formatRelativeTime(value) {
+  const timestamp = new Date(value || 0).getTime();
+  if (!Number.isFinite(timestamp) || !timestamp) {
+    return "just now";
+  }
+
+  const diff = Math.max(Date.now() - timestamp, 0);
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (minutes < 1) {
+    return "just now";
+  }
+
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
+  return `${days}d ago`;
+}
 
 const Paste = () => {
   const pastes = useSelector((state) => state.paste.pastes);
+  const currentUser = useSelector(selectCurrentUser);
   const dispatch = useDispatch();
-  const navigate = useNavigate();
-
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
 
   const filteredData = pastes.filter((paste) =>
-    paste.title.toLowerCase().includes(searchTerm.toLowerCase())
+    `${paste.title || ""} ${paste.content || ""}`
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase()),
   );
 
   function handleDelete(pasteId) {
-    dispatch(removeFromPaste(pasteId));
+    if (!currentUser) {
+      toast.error("Please sign in again.");
+      return;
+    }
+
+    dispatch(removeFromPaste({ userEmail: currentUser.email, pasteId }));
     toast.success("Paste deleted.");
   }
 
   function handleCopy(content) {
-    navigator.clipboard.writeText(content);
-    toast.success('Copied to clipboard');
-  }
-
-  function handleEdit(pasteId) {
-    navigate(`/?pasteId=${pasteId}`);
-  }
-
-  function handleView(paste) {
-    toast(paste.content || "No content");
+    navigator.clipboard.writeText(content || "");
+    toast.success("Copied to clipboard");
   }
 
   function handleShare(paste) {
-    const url = `${window.location.origin}/?pasteId=${paste._id}`;
+    const url = `${window.location.origin}/view/${paste._id}`;
     navigator.clipboard.writeText(url);
-    toast.success('Share link copied!');
+    toast.success("Share link copied!");
   }
 
   return (
-    <div className="w-[900px] bg-[#1e1e1e] text-white px-10 py-12 rounded-2xl mt-1 border border-gray-950">
-      <h1 className="text-4xl font-bold mb-2 text-blue-500">All Pastes</h1>
-      <h2 className="text-2xl font-semibold mb-8 text-gray-300">Explore Your Saved Notes</h2>
+    <section className="paste-archive">
+      <div className="paste-archive__shell">
+        <div className="paste-archive__header">
+          <div>
+            <p className="eyebrow">Library</p>
+            <h1>All Pastes</h1>
+            <p className="paste-archive__subtitle">
+              Explore your saved notes, jump back into editing, or share a snippet.
+            </p>
+          </div>
 
-      <input
-        className="w-[800px] h-12 rounded-2xl bg-gray-600 px-5 text-white placeholder-gray-300 outline-none focus:ring-2 focus:ring-blue-400 transition-all duration-300 mb-8"
-        type="search"
-        placeholder="Search pastes by title..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-      />
+          <label className="paste-archive__search">
+            <span>Search</span>
+            <input
+              type="search"
+              placeholder="Search pastes by title or content..."
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+            />
+          </label>
+        </div>
 
-      <div className="flex flex-col gap-6 w-[800px]">
-        {filteredData.length > 0 ? (
-          filteredData.map((paste) => (
-            <div
-              key={paste._id}
-              className="bg-gray-800 p-5 rounded-2xl shadow-md hover:shadow-blue-500/20 transition-all"
-            >
-              <h3 className="text-xl font-semibold text-blue-400 mb-2">
-                {paste.title || 'Untitled'}
-              </h3>
-              <p className="text-gray-300 text-sm mb-4">
-                {paste.content?.slice(0, 120) + (paste.content?.length > 120 ? '...' : '')}
-              </p>
+        <div className="paste-archive__list">
+          {filteredData.length > 0 ? (
+            filteredData.map((paste) => (
+              <article key={paste._id} className="paste-card">
+                <div className="paste-card__body">
+                  <h3>{paste.title || "Untitled"}</h3>
+                  <p>
+                    {paste.content?.slice(0, 160)}
+                    {paste.content?.length > 160 ? "..." : ""}
+                  </p>
+                </div>
 
-              <div className="flex flex-wrap gap-3 mt-2">
-                
-                <button className="px-4 py-2 rounded-lg hover:bg-blue-600"> <NavLink to={`/?pasteId=${paste?._id}`}>edit</NavLink></button>
-                
-                <button className="px-4 py-2  rounded-lg hover:bg-green-700"><NavLink to={`/view/${paste._id}`}>view</NavLink></button>
+                <div className="paste-actions">
+                  <Link className="paste-action paste-action--soft" to={`/?pasteId=${paste?._id}`}>
+                    edit
+                  </Link>
+                  <Link className="paste-action paste-action--soft" to={`/view/${paste._id}`}>
+                    view
+                  </Link>
+                  <button
+                    type="button"
+                    className="paste-action paste-action--danger"
+                    onClick={() => handleDelete(paste._id)}
+                  >
+                    Delete
+                  </button>
+                  <button
+                    type="button"
+                    className="paste-action paste-action--neutral"
+                    onClick={() => handleCopy(paste.content)}
+                  >
+                    Copy
+                  </button>
+                  <button
+                    type="button"
+                    className="paste-action paste-action--accent"
+                    onClick={() => handleShare(paste)}
+                  >
+                    Share
+                  </button>
+                </div>
 
-                <button className="px-4 py-2 bg-red-500 rounded-lg hover:bg-red-600" onClick={() => handleDelete(paste._id)}>
-                  Delete
-                </button>
-
-                <button className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-800" onClick={() => handleCopy(paste.content)}>
-                  Copy
-                </button>
-
-                <button className="px-4 py-2 bg-purple-500 rounded-lg hover:bg-purple-600" onClick={() => handleShare(paste)}>
-                  Share
-                </button>
-              </div>
-
-              <p className="text-gray-500 mt-4 text-sm">
-                Created at: {new Date(paste.createdAt).toLocaleString()}
-              </p>
+                <p className="paste-card__meta">
+                  Created at: {new Date(paste.createdAt).toLocaleString()} · {formatRelativeTime(paste.createdAt)}
+                </p>
+              </article>
+            ))
+          ) : (
+            <div className="empty-state">
+              <strong>No pastes found.</strong>
+              <span>Try a different search or create a new paste from Home.</span>
             </div>
-          ))
-        ) : (
-          <p className="text-gray-400 text-lg">No pastes found.</p>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+    </section>
   );
 };
 

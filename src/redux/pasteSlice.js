@@ -1,45 +1,130 @@
 import { createSlice } from "@reduxjs/toolkit";
 import toast from "react-hot-toast";
+import {
+  STORAGE_KEYS,
+  readJSON,
+  writeJSON,
+} from "../lib/storage";
+import { loginUser, logoutUser, signupUser } from "./authSlice";
+
+const readAllUserPastes = () => {
+  const stored = readJSON(STORAGE_KEYS.pastesByUser, {});
+  return stored && typeof stored === "object" ? stored : {};
+};
+
+const readLegacyPastes = () => {
+  const legacy = readJSON(STORAGE_KEYS.legacyPastes, []);
+  return Array.isArray(legacy) ? legacy : [];
+};
+
+const getPastesForUser = (email) => {
+  if (!email) {
+    return [];
+  }
+
+  const allPastes = readAllUserPastes();
+  const userPastes = allPastes[email];
+
+  if (Array.isArray(userPastes)) {
+    return userPastes;
+  }
+
+  const legacyPastes = readLegacyPastes();
+  if (legacyPastes.length > 0 && Object.keys(allPastes).length === 0) {
+    const migrated = {
+      ...allPastes,
+      [email]: legacyPastes,
+    };
+
+    writeJSON(STORAGE_KEYS.pastesByUser, migrated);
+    return legacyPastes;
+  }
+
+  return [];
+};
 
 const initialState = {
-  pastes: localStorage.getItem("pastes")
-    ? JSON.parse(localStorage.getItem("pastes"))
-    : [],
+  pastes: getPastesForUser(readJSON(STORAGE_KEYS.session, "")),
 };
 
 export const pasteSlice = createSlice({
   name: "paste",
   initialState,
   reducers: {
-    // Add a paste to the state
     addToPastes: (state, action) => {
-      state.pastes.push(action.payload);
-      localStorage.setItem("pastes", JSON.stringify(state.pastes));
+      const { userEmail, paste } = action.payload || {};
+
+      if (!userEmail || !paste) {
+        return;
+      }
+
+      state.pastes = [...state.pastes, paste];
+
+      const allPastes = readAllUserPastes();
+      allPastes[userEmail] = state.pastes;
+      writeJSON(STORAGE_KEYS.pastesByUser, allPastes);
+
       toast("Paste added successfully!");
     },
-    // Update a paste in the state
     updateToPastes: (state, action) => {
-      const index = state.pastes.findIndex((p) => p._id === action.payload._id);
+      const { userEmail, paste } = action.payload || {};
+
+      if (!userEmail || !paste) {
+        return;
+      }
+
+      const index = state.pastes.findIndex((item) => item._id === paste._id);
       if (index !== -1) {
-        state.pastes[index] = action.payload;
-        localStorage.setItem("pastes", JSON.stringify(state.pastes));
+        state.pastes[index] = paste;
+
+        const allPastes = readAllUserPastes();
+        allPastes[userEmail] = state.pastes;
+        writeJSON(STORAGE_KEYS.pastesByUser, allPastes);
+
+        toast("Paste updated successfully!");
       }
     },
-    // Remove a paste from the state
     removeFromPaste: (state, action) => {
-      state.pastes = state.pastes.filter((p) => p._id !== action.payload);
-      localStorage.setItem("pastes", JSON.stringify(state.pastes));
-    },
+      const { userEmail, pasteId } = action.payload || {};
 
-    // Reset all pastes in the state
-    resetAllPastes: (state) => {
-      state.pastes = [];
-      localStorage.removeItem("pastes");
+      if (!userEmail || !pasteId) {
+        return;
+      }
+
+      state.pastes = state.pastes.filter((item) => item._id !== pasteId);
+
+      const allPastes = readAllUserPastes();
+      allPastes[userEmail] = state.pastes;
+      writeJSON(STORAGE_KEYS.pastesByUser, allPastes);
     },
+    resetAllPastes: (state, action) => {
+      const userEmail = action.payload?.userEmail;
+
+      state.pastes = [];
+
+      if (!userEmail) {
+        return;
+      }
+
+      const allPastes = readAllUserPastes();
+      delete allPastes[userEmail];
+      writeJSON(STORAGE_KEYS.pastesByUser, allPastes);
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(signupUser.fulfilled, (state, action) => {
+        state.pastes = getPastesForUser(action.payload.email);
+      })
+      .addCase(loginUser.fulfilled, (state, action) => {
+        state.pastes = getPastesForUser(action.payload.email);
+      })
+      .addCase(logoutUser.fulfilled, (state) => {
+        state.pastes = [];
+      });
   },
 });
 
-// ✅ Correct export
 export const { addToPastes, updateToPastes, resetAllPastes, removeFromPaste } =
   pasteSlice.actions;
 

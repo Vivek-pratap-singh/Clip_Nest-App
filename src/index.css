@@ -24,11 +24,14 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
-  /* place-items: center; */
-  min-width: 320px;
   min-height: 100vh;
-  justify-content: center;
+  min-width: 320px;
+  width: 100%;
+  display: block;
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.16), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(168, 85, 247, 0.12), transparent 28%),
+    #020617;
 }
 
 h1 {
